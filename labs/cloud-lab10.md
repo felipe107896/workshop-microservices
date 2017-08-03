@@ -1,204 +1,207 @@
 # Laboratório 10
 
 ## Objetivos
-- Trabalhando com JSON Web Tokens
+- Protegendo os microservices com Spring Cloud Security
 
 ## Tarefas
 
-### Adicione o suporte JWT no serviço de segurança
+### Protega o microservice de Aluno
 - Utilize os projetos definidos no exercício anterior
-- Adicione a dependência do `spring-security-jwt` no projeto do `security-server`
+- Adicione as dependência do `spring-cloud-starter-security`, `spring-security-oauth2`, `spring-security-jwt` no projeto `aluno-service`
 ```xml
   <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-jwt</artifactId>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-security</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>org.springframework.security.oauth</groupId>
+    <artifactId>spring-security-oauth2</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>org.springframework.security</groupId>
+    <artifactId>spring-security-jwt</artifactId>
   </dependency>
 ```
-- Configure o suporte ao JWT ao serviço de autorização OAuth2 no projeto definindo por uma classe `AuthServerJwtConfig`
-```java
-  @Configuration
-  public class AuthServerJwtConfig {
-    @Bean
-    public TokenStore tokenStore() {
-        return new JwtTokenStore(accessTokenConverter());
-    }
-
-    @Bean
-    public JwtAccessTokenConverter accessTokenConverter() {
-        JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-        converter.setSigningKey("123");
-        return converter;
-    }
-
-  }
-```
-- Modifique a configuração do servidor de autorização OAuth2 para adicionar suporte ao JWT
-```java
-  @Configuration
-  @EnableAuthorizationServer
-  public class AuthServerConfig extends AuthorizationServerConfigurerAdapter {
-      //...
-      @Autowired TokenStore tokenStore;      
-      @Autowired JwtAccessTokenConverter accessTokenConverter;
-
-      @Override
-      public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-          endpoints.tokenStore(tokenStore)
-                   .accessTokenConverter(accessTokenConverter)
-                   .authenticationManager(authenticationManager);
-      }
-  }
-```
-- Configure o suporte ao JWT ao serviço de recursos OAuth2 no projeto definindo por uma classe `ResourceServerJwtConfig`
-```java
-  @Configuration
-  public class ResourceServerJwtConfig {
-    @Autowired TokenStore tokenStore;
-
-    @Bean
-    @Primary
-    public DefaultTokenServices tokenServices() {
-        DefaultTokenServices defaultTokenServices = new DefaultTokenServices();
-        defaultTokenServices.setTokenStore(tokenStore);
-        defaultTokenServices.setSupportRefreshToken(true);
-        return defaultTokenServices;
-     }    
-  }
-```
-- Modifique a configuração do servidor de recursos OAuth2 para adicionar suporte ao JWT
+- Configure o serviço de recursos OAuth2 utilizando a anotação `@EnableResourceServer` no projeto `aluno-service`
 ```java
   @Configuration
   @EnableResourceServer
   public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-      //...
-      @Autowired DefaultTokenServices tokenServices;
 
-      @Override
-      public void configure(ResourceServerSecurityConfigurer config) {
-          config.tokenServices(tokenServices);
-      }
+    @Override
+  	public void configure(HttpSecurity http) throws Exception {
+  		  http.csrf().disable().authorizeRequests()
+  			   .anyRequest().authenticated();
+  	}
   }
 ```
+- Configure as seguintes propriedades do `aluno-service` gerenciadas pelo Config Server
+```
+security:
+  sessions: stateless
+  basic:
+    enabled: false
+  user:
+    password: none    
+  oauth2:
+    resource:
+      jwt:
+        keyValue: |
+            -----BEGIN PUBLIC KEY-----
+            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo1jWPfjvJxaXCHzvClU7
+            uJg+6AlZ8ht1Rbr+7Wo5o+YBWgCc6lZmSv/mwxvfL/wqagQ/W756a8vUJ7qFz/k9
+            eBSJQSRuzJ6pT4OMMR9gbmYroh3RM/Xd5RelJgT3+OrvjAZr1pFYdAwp0q1T9XPa
+            6PnCXq8KhIqNPxMjcaBrOycWEgWE4g4VnnrKDLtMmEZZIc0EMv8j7womsyNkbTyl
+            nPsbFttNwtFoTVJeqvD01Fd6ISaoOVQAUfAcxvp77B/A1g0No3GHBupEtW3Hgp2/
+            80Zl0+Gwjl6Wag5Mu9H7MIUPo+4xFGAJ0uwseHiErZqdWlHIo179IacB87+9Vt0g
+            pwIDAQAB
+            -----END PUBLIC KEY-----
+```
+- Observe na configuração dos recursos OAuth2 esta configurada para modo `Stateless` e utilizando a validação JWT no cliente
 - Execute e teste a aplicação
-  - Teste novamente os fluxos de autorização OAuth2 e verifique o JWT sendo utilizado
+  - Tente acessar os REST endpoints do `aluno-service` sem informar nenhum token na requisição
+  - Recupere um OAuth2 token via `security-server` e tente acessar os REST endpoints com esse token adicionado no header da requisição
+    - `Authorization: Bearer [token]`
+  - Identifique também que a validação deste token acontece de maneira `Stateless` sem precisar acessar o `security-server`
 
-### Adicione informações adicionais no JWT payload
+### Protega o microservice de Disciplina
+- Utilize os projetos definidos no exercício anterior
+- Adicione as dependência do `spring-cloud-starter-security`, `spring-security-oauth2`, `spring-security-jwt` no projeto `disciplina-service`
+```xml
+  <dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-security</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>org.springframework.security.oauth</groupId>
+    <artifactId>spring-security-oauth2</artifactId>
+  </dependency>
+  <dependency>
+    <groupId>org.springframework.security</groupId>
+    <artifactId>spring-security-jwt</artifactId>
+  </dependency>
+```
+- Configure o serviço de recursos OAuth2 utilizando a anotação `@EnableResourceServer` no projeto `disciplina-service`
+```java
+  @Configuration
+  @EnableResourceServer
+  public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
+
+    @Override
+  	public void configure(HttpSecurity http) throws Exception {
+  		  http.csrf().disable().authorizeRequests()
+  			   .anyRequest().authenticated();
+  	}
+  }
+```
+- Configure as seguintes propriedades do `disciplina-service` gerenciadas pelo Config Server
+```
+security:
+  basic:
+    enabled: false
+  user:
+    password: none    
+  oauth2:
+    resource:
+      preferTokenInfo: false
+      userInfoUri: http://localhost:9999/users/current
+```
+- Observe na configuração dos recursos OAuth2 esta configurada para validação do JWT via `security-server`
+- Execute e teste a aplicação
+  - Tente acessar os REST endpoints do `disciplina-service` sem informar nenhum token na requisição
+  - Recupere um OAuth2 token via `disciplina-service` e tente acessar os REST endpoints com esse token adicionado no header da requisição
+    - `Authorization: Bearer [token]`
+  - Identifique também que durante a validação do token é realizado uma chamada ao `security-server`
+
+
+### Configure o suporte a utilização de restrições de segurança OAuth2 via anotações
 - Utilize os projetos definidos anteriormente
-- Defina uma classe `JwtTokenEnhancer` para incrementar informações adicionais ao JWT retornado no projeto `security-server`
-```java
-  public class JwtTokenEnhancer implements TokenEnhancer {
-      @Override
-      public OAuth2AccessToken enhance(OAuth2AccessToken accessToken,
-          OAuth2Authentication authentication) {
-          Map<String, Object> additionalInfo = new HashMap<>();
-          additionalInfo.put("organization", authentication.getName() + System.currentTimeMillis());
-          ((DefaultOAuth2AccessToken) accessToken).setAdditionalInformation(additionalInfo);
-          return accessToken;
-      }
-  }
-```
-- Adicione a configuração para incrementar informações adicionais JWT na classe de configuração `AuthServerJwtConfig`
+- Defina uma classe `SecurityMethodConfig` para adicionar o suporte a restrições de segurança via anotações nos projetos `aluno-service` e `disciplina-service`
 ```java
   @Configuration
-  public class AuthServerJwtConfig {
-      //...
-      @Bean
-      public TokenEnhancer tokenEnhancer() {
-          TokenEnhancerChain tokenEnhancerChain = new TokenEnhancerChain();
-          tokenEnhancerChain.setTokenEnhancers(Arrays.asList(new JwtTokenEnhancer(),
-            accessTokenConverter()));
-          return tokenEnhancerChain;
-      }
-  }
-```
-- Modifique a configuração do servidor de autorização OAuth2 para adicionar suporte as informações customizadas ao JWT
-```java
-  @Configuration
-  @EnableAuthorizationServer
-  public class AuthServerConfig extends AuthorizationServerConfigurerAdapter {
-      //...
-      @Autowired TokenEnhancer tokenEnhancer;
+  @EnableGlobalMethodSecurity(prePostEnabled = true)
+  public class SecurityMethodConfig extends GlobalMethodSecurityConfiguration {
 
-      @Override
-      public void configure(AuthorizationServerEndpointsConfigurer endpoints) throws Exception {
-          endpoints.tokenStore(tokenStore)
-              .tokenEnhancer(tokenEnhancer)
-              .authenticationManager(authenticationManager);
-      }
+	  @Override
+	  protected MethodSecurityExpressionHandler createExpressionHandler() {
+		  return new OAuth2MethodSecurityExpressionHandler();
+	  }
+
+  }
+```
+- Adicione a seguinte restrição de segurança para acessar o REST endpoint `/disciplinas/nomes` no `DisciplinaRestController`
+```java
+  @RestController
+  @RequestMapping("/disciplinas")
+  public class DisciplinaRestController {
+    //...
+
+	  @PreAuthorize("hasRole('MANAGER')")
+	  @GetMapping("/nomes")
+	  public List<String> getDisciplinas() {
+		  return repository.findAll()
+				  .stream().map(d -> d.getNome()).collect(Collectors.toList());
+	  }
+  }
+```
+- Adicione a seguinte restrição de segurança para acessar o REST endpoint `/alunos/nomes` no `AlunoRestController`
+```java
+  @RestController
+  @RequestMapping("/alunos")
+  public class AlunoRestController {
+    //...
+
+	  @PreAuthorize("#oauth2.isUser()")
+	  @GetMapping("/nomes")
+	  public List<String> getAlunos() {
+		  return repository.findAll()
+				  .stream().map(a -> a.getNome()).collect(Collectors.toList());
+	  }
   }
 ```
 - Execute e teste a aplicação
-  - Teste novamente os fluxos de autorização OAuth2 e verifique o JWT modificado sendo retornado
+  - Tente acessar o REST endpoint `/disciplinas/nomes` com um token para um usuário sem o perfil `MANAGER`
+  - Tente acessar o REST endpoint `/alunos/nomes` com um token gerado via fluxo OAuth2 `client_credentials`
 
-### Manipule chaves assimétricas com JWT
+### Configure o repasse do contexto de segurança OAuth2 nas requisições via Feign
 - Utilize os projetos definidos anteriormente
-- Gere a chave privada utilizando a ferramenta `keytool`
-```
-  keytool -genkeypair -alias security-server
-                      -keyalg RSA
-                      -keypass mypass
-                      -keystore mykeys.jks
-                      -storepass mypass
-```
-- Será necessário instalar a ferramenta `openssl` para exportar a chave privada
-  - Windows
-    - http://gnuwin32.sourceforge.net/packages/openssl.htm
-  - Mac OS
-    - `brew install openssl`
-  - Linux
-    - https://geeksww.com/tutorials/libraries/openssl/installation/installing_openssl_on_ubuntu_linux.php 
-- Exporte a chave pública a partir da chave privada gerada anteriormente
-```
-  keytool -list -rfc --keystore mykeys.jks | openssl x509 -inform pem -pubkey
-```
-- Crie um arquivo `public.txt` com o conteúdo da chave pública retornada
-```
------BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAgIK2Wt4x2EtDl41C7vfp
-OsMquZMyOyteO2RsVeMLF/hXIeYvicKr0SQzVkodHEBCMiGXQDz5prijTq3RHPy2
-/5WJBCYq7yHgTLvspMy6sivXN7NdYE7I5pXo/KHk4nz+Fa6P3L8+L90E/3qwf6j3
-DKWnAgJFRY8AbSYXt1d5ELiIG1/gEqzC0fZmNhhfrBtxwWXrlpUDT0Kfvf0QVmPR
-xxCLXT+tEe1seWGEqeOLL5vXRLqmzZcBe1RZ9kQQm43+a9Qn5icSRnDfTAesQ3Cr
-lAWJKl2kcWU1HwJqw+dZRSZ1X4kEXNMyzPdPBbGmU6MHdhpywI7SKZT7mX4BDnUK
-eQIDAQAB
------END PUBLIC KEY-----
-```
-- Adicione as chaves privada e pública geradas no diretório `src/main/resources` do projeto `security-server`
-  - `mykeys.jks`
-  - `public.txt`
-- Configure a chave privada no suporte JWT do serviço de autorização OAuth2 definindo pela classe `AuthServerJwtConfig`
+- Execute e teste a aplicação tentando acessar os REST endpoints que realizam chamadas via Feign para outros serviços. Verifique se os dados solicitados foram todos retornados.
+  - REST `/disciplinas/{id}/dto`
+  - REST `/alunos/{id}/dto`
+- Adicione a seguinte configuração do `ResourceServerConfig` nos projetos do `aluno-service` e `disciplina-service`
 ```java
   @Configuration
-  public class AuthServerJwtConfig {
-      //...   
-      @Bean
-      public JwtAccessTokenConverter accessTokenConverter() {
-          JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-          KeyStoreKeyFactory keyStoreKeyFactory =
-              new KeyStoreKeyFactory(new ClassPathResource("mykeys.jks"), "mypass".toCharArray());
-          converter.setKeyPair(keyStoreKeyFactory.getKeyPair("security-server"));
-          return converter;
-      }
+  @EnableResourceServer
+  public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
+	  //...
+
+    @Bean
+    public OAuth2FeignRequestInterceptor feignRequestInterceptor(
+            OAuth2ClientContext oAuth2ClientContext, OAuth2ProtectedResourceDetails resource) {
+        return new OAuth2FeignRequestInterceptor(oAuth2ClientContext, resource);
+    }
   }
 ```
-- Configure a chave pública no suporte JWT do serviço de recursos OAuth2 definindo pela classe `ResourceServerJwtConfig`
+- Execute e teste a aplicação novamente
+  - Foi possível acessar os dados dos alunos via REST endpoint `/disciplinas/{id}/dto`?
+  - Foi possível acessar os dados das disciplinas via REST endpoint `/alunos/{id}/dto`?
+- Modifique a configuração do circuit breaker Hystrix na classe `DisciplinaServiceProxy` para utilizar a estratégia `SEMAPHORE`
 ```java
-  @Configuration
-  public class ResourceServerJwtConfig {
-      //...         
-      public JwtAccessTokenConverter accessTokenConverter() {
-          JwtAccessTokenConverter converter = new JwtAccessTokenConverter();
-          Resource resource = new ClassPathResource("public.txt");
-          String publicKey = null;
-          try {
-              publicKey = IOUtils.toString(resource.getInputStream());
-          } catch (final IOException e) {
-              throw new RuntimeException(e);
-          }
-          converter.setVerifierKey(publicKey);
-          return converter;
-      }
+  @Service
+  public class DisciplinaServiceProxy {
+    //...
+
+	  @HystrixCommand(fallbackMethod = "getNomesDisciplinasFallback",
+			commandProperties = {
+					@HystrixProperty(name="execution.isolation.strategy", value="SEMAPHORE"),
+					@HystrixProperty(name="circuitBreaker.requestVolumeThreshold", value="5"),
+					@HystrixProperty(name="requestCache.enabled", value="false")
+			})
+	  List<String> getNomesDisciplinas() {
+		  Resources<DisciplinaDTO> disciplinas = disciplinaClient.getAllDisciplinas();
+		  return disciplinas.getContent().stream()
+				.map(d -> d.getNome()).collect(Collectors.toList());
+	  }
   }
 ```
-- Execute e teste a aplicação
-  - Teste novamente os fluxos de autorização OAuth2 e verifique o JWT via chaves assimétricas sendo validado
+- Execute e teste novamente o acesso ao REST endpoint `/alunos/{id}/dto`. Foi possível acessar os dados de disciplina agora?

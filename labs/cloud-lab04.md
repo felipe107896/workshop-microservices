@@ -1,75 +1,118 @@
 # Laboratório 04
 
 ## Objetivos
-- Ativando o suporte à replicação com Netflix Eureka
+- Implementando balanceamento de carga e tolerância à falhas com Netflix Ribbon
 
 ## Tarefas
 
-### Configure replicação no Eureka Server
+### Implemente Ribbon client (sem o Eureka server)
 - Utilize os projetos definidos no exercício anterior
-- Adicione as configurações de suporte à replicação para réplica `peer1 ` e réplica `peer2` na configuração do Eureka Server
+- Adicione a dependência `spring-cloud-starter-ribbon` no projeto do `aluno-service`
+```xml
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-ribbon</artifactId>
+  </dependency>
+```
+- Adicione a configuração para o Ribbon client acessar o `disciplina-service` nas propriedades do serviço de `Aluno`
+  - DICA: Defina um novo profile `ribbon-only` para usar esta configuração
 ```
 ...
 ---
 spring:
-  profiles: peer1
+  profiles: ribbon-only
 
 server:
-  port: 8762
+  port: ${PORT:8080}
 
-eureka:
-  instance:
-    hostname: peer1
-  client:
-    serviceUrl:
-      defaultZone: http://peer2:8763/eureka/  
-
----
-spring:
-  profiles: peer2
-
-server:
-  port: 8763
-
-eureka:
-  instance:
-    hostname: peer2
-  client:
-    serviceUrl:
-      defaultZone: http://peer1:8762/eureka/  
+disciplina-service:
+  ribbon:
+    eureka:
+      enabled: false
+    listOfServers: localhost:8081,localhost:18081,localhost:28081
+    ServerListRefreshInterval: 15000
 ```
-- Configure os hostnames `peer1` e `peer2` no registro DNS do sistema operacional
-```
-127.0.0.1       peer1
-127.0.0.1       peer2
-```
-- Realize essa configuração de acordo com cada sistema operacional
-  - Windows
-    - `C:\windows\system32\drivers\etc\hosts`
-  - Linux
-    - `/etc/hosts`
-  - Mac OS
-    - `/etc/hosts`
-- Execute as duas réplicas Eureka e verifique a conexão sendo realizada via console
-  - Não se esqueça de rodar cada réplica com seu profile específico definido (`peer1`, `peer2`)
-    - `mvn spring-boot:run -Dspring.profiles.active=[profile]`
+- Para desabilitar totalmente o Eureka Server no `aluno-service`, será necessário comentar a anotação `@EnabledDiscoveryClient` na aplicação
+- Defina uma classe para configuração do Ribbon client a ser utilizado
+```java
+  public class RibbonConfiguration {
 
-### Registre o(s) Eureka Client(s) em uma instância diferente do Eureka Server
-- Utilize os projetos definidos anteriormente
-- Analise a configuração definida pelos projetos para conexão com o Eureka Server
-```
-spring:
-  application:
-    name: [service]
+      @Autowired IClientConfig ribbonClientConfig;
 
-eureka:
-  client:
-    serviceUrl:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
-  instance:
-    preferIpAddress: true
+      @Bean
+      public IPing ribbonPing(IClientConfig config) {
+          return new PingUrl();
+      }
+
+      @Bean
+      public IRule ribbonRule(IClientConfig config) {
+          return new AvailabilityFilteringRule();
+      }
+  }
 ```
-- Execute a aplicação utilizando a variável de ambiente `EUREKA_URI` para informar a réplica do Eureka Server à ser registrado
-  - `spring-boot:run -DEUREKA_URI=http://peer1:8762/eureka`
-  - `spring-boot:run -DEUREKA_URI=http://peer2:8763/eureka`
-- Verifique se a aplicação foi registrada corretamente na réplica definida e se a mesma foi replicada para a outra instância do cluster Eureka definido
+- Adicione a configuração do `@RibbonClient` no REST controller da aplicação, ou no local aonde será utilizado o serviço destino
+```java
+@RestController
+@RibbonClient(name = "disciplina-service", configuration = RibbonConfiguration.class)
+public class AlunoRestController {
+  // ...
+}
+```
+
+- Configure um bean `RestTemplate` com a anotação `@LoadBalanced` na aplicação
+```java
+  @LoadBalanced @Bean
+  RestTemplate restTemplate(){
+      return new RestTemplate();
+  }
+```
+- Implemente um objeto DTO para representar as informações do `Aluno` e das disciplinas matriculadas
+```java
+class AlunoDTO {
+  String nome;
+  String email;
+  Integer matricula;
+  List<String> disciplinas;
+  // getters/setters
+}
+```
+- Implemente um REST endpoint para consultar e retornar o DTO do aluno com as disciplinas
+- Para acessar o serviço de disciplinas, utilize o `RestTemplate` configurado anteriormente
+```java
+    @Autowired RestTemplate
+    //...
+    restTemplate.getForEntity("http://disciplina-service/disciplinas/nomes",
+        List.class);
+```
+- Execute e teste a aplicação com apenas uma instância do `disciplina-service`
+- Experimente subir mais de uma instância do `disciplina-service` e teste a aplicação
+  - DICA: Para subir mais de uma instância utilize a variável de ambiente `-Dserver.port`
+    - `spring-boot:run -Dserver.port=18081`
+- Execute novamente a aplicação e observe qual a(s) instância(s) que são localizadas durante a execução
+  - DICA: Ative o `spring.jpa.show-sql` para facilitar a identificação de qual instância está sendo executada
+- Experimente derrubar uma instância do `disciplina-service` durante a execução e teste o mecanismo de tolerância à falhas
+  - A configuração Ribbon client conseguiu identificar e recuperar essa falha?
+
+### Implemente Ribbon client (com o Eureka server)
+- Utilize os projetos definidos no exercício anterior
+- Adicione a dependência `spring-cloud-starter-ribbon` no projeto do `disciplina-service`
+```xml
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-ribbon</artifactId>
+  </dependency>
+```
+- Configure um bean `RestTemplate` com a anotação `@LoadBalanced` na aplicação, caso não esteja configurado
+```java
+  @LoadBalanced @Bean
+  RestTemplate restTemplate(){
+      return new RestTemplate();
+  }
+```
+- Verifique se os projetos `disciplina-service` e `aluno-service` estão registrando-se corretamente no Eureka Server
+  - DICA: Habilite novamente o `@EnableDiscoveryClient` no `aluno-service`, caso tenha desabilitado no exercício anterior
+- Modifique a implementação do REST endpoint para retornar o `DisciplinaDTO` para buscar os alunos via `RestTemplate`
+  - Neste caso, não deve-se utilizar a configuração `ribbon.listOfServers` nas propriedades do serviço de `Disciplina`
+  - Essa lista deverá ser retornada dinâmicamente do registro no Eureka Server
+- Execute e teste a aplicação
+  - Realize os mesmos testes de execução com múltiplas instâncias e tolerância à falhas realizado no exercício anterior

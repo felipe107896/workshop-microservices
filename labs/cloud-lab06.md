@@ -1,22 +1,22 @@
 # Laboratório 06
 
 ## Objetivos
-- Implementando clientes REST com Netflix Feign
+- Implementando circuit breakers com Netflix Hystrix
 
 ## Tarefas
 
-### Implemente clientes REST com Feign
+### Implemente circuit breaker via @HystrixCommand
 - Utilize os projetos definidos no exercício anterior
-- Adicione a dependência `spring-cloud-starter-feign` nos projetos do `aluno-service` e `disciplina-service`
+- Adicione a dependência `spring-cloud-starter-hystrix` no projeto do `aluno-service`
 ```xml
   <dependency>
       <groupId>org.springframework.cloud</groupId>
-      <artifactId>spring-cloud-starter-feign</artifactId>
+      <artifactId>spring-cloud-starter-hystrix</artifactId>
   </dependency>
 ```
-- Ative a configuração do Feign utilizando a anotação `@EnableFeignClients` nas aplicações
+- Ative a configuração do Hystrix utilizando a anotação `@EnableCircuitBreaker` na aplicação
 ```java
-  @EnableFeignClients
+  @@EnableCircuitBreaker
   @SpringBootApplication
   public class Application {
       public static void main(String[] args) {
@@ -24,71 +24,107 @@
       }
   }
 ```
-- Implemente uma Feign interface para recuperar as disciplinas no projeto do `aluno-service`
+- Implemente uma classe `DisciplinaServiceProxy` para controlar as chamadas do `aluno-service` -> `disciplina-service`
 ```java
-  @FeignClient("disciplina-service")
-  public interface DisciplinaClient {
-
-      @RequestMapping(value = "/disciplinas", method = RequestMethod.GET)
-      Resources<DisciplinaDTO> getAllDisciplinas();
-
-      @RequestMapping(value = "/disciplinas/{id}/dto", method = RequestMethod.GET)
-      DisciplinaDTO getDisciplina(@PathVariable("id") Long id);
+  @Service
+  public class DisciplinaServiceProxy {
+      // TODO
   }
 ```
-- Refatore o REST endpoint para retornar o `AlunoDTO` com as disciplinas utilizando o client Feign definido
-- Implemente uma interface Feign para recuperar os alunos no projeto `disciplina-service`
+- Injete a interface Feign `DisciplinaClient` via `@Autowired` na classe proxy
+- Implemente um método para recuperar os nomes das disciplinas via `disciplina-service` utilizando a interface Feign `DisciplinaClient`
+- Implemente um fallback método para recuperar nomes das disciplinas caso o `disciplina-service` esteja indisponível
+- Utilize a anotação `@HystrixCommand` para configurar um circuit breaker na chamada do método de recuperação dos nomes das disciplinas
 ```java
-  @FeignClient("aluno-service")
-  public interface AlunoClient {
-
-      @RequestMapping(value = "/alunos", method = RequestMethod.GET)
-      Resources<AlunoDTO> getAllAlunos();
-
-      @RequestMapping(value = "/alunos/{id}/dto", method = RequestMethod.GET)
-      AlunoDTO getAluno(@PathVariable("id") Long id);
-  }
-```
-- Refatore o REST endpoint para retornar a `DisciplinaDTO` com os alunos utilizando o client Feign definido
-- Execute e teste a aplicação
-
-### Customize as configurações do Feign na aplicação
-- Utilize os projetos definidos anteriormente
-- Defina uma classe de customização de configurações Feign `FeignConfiguration`
-```java
-  @Configuration
-  public class FeignConfiguration {  
+  @HystrixCommand(fallbackMethod = "getNomesDisciplinasFallback")
+  public List<String> getNomesDisciplinas() {
       // ...
   }
 ```
-- Configure um nível de log `FULL` como padrão para os Feign clients
+- Configure as seguintes propriedades para o Hystrix Command utilizando anotação `@HystrixProperty`
+  - `execution.isolation.strategy` = THREAD
+  - `circuitBreaker.requestVolumeThreshold` = 5
+  - `requestCache.enabled` = false
+- Configure também as seguintes propriedades para o comportamento do Hystrix thread pool
+  - `coreSize` = 5
+  - `maximumSize` = 5
 ```java
-  @Bean
-  Logger.Level feignLoggerLevel() {
-      return Logger.Level.FULL;
+@HystrixCommand(fallbackMethod = "getNomesDisciplinasFallback",
+  commandProperties = {
+      @HystrixProperty(name="execution.isolation.strategy", value="THREAD"),
+      @HystrixProperty(name="circuitBreaker.requestVolumeThreshold", value="5"),
+      @HystrixProperty(name="requestCache.enabled", value="false"),
+  },threadPoolProperties = {
+      @HystrixProperty(name="coreSize", value="5"),
+      @HystrixProperty(name="maximumSize", value="5")
+  })
+```
+- Injete o objeto `DisciplinaServiceProxy` no REST controller, e utilize para acessar os nomes das disciplinas
+- Execute e teste a aplicação
+  - Tente realizar mais de 5 chamadas consecutivas ao circuito definido
+  - Verifique se o circuito foi aberto acessando o `/health` status do serviço
+    - http://localhost:8080/health
+    - Caso não apareça as informações, tente desabilitar a proteção de segurança via `management.security.enabled` = false     
+
+
+### Implemente um circuit breaker via Feign Hystrix fallback
+- Utilize os projetos definidos anteriormente
+- Adicione a dependência `spring-cloud-starter-hystrix` no projeto da `disciplina-service`
+```xml
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-hystrix</artifactId>
+  </dependency>
+```
+- Ative a configuração do Hystrix utilizando a anotação `@EnableCircuitBreaker` na aplicação
+```java
+  @@EnableCircuitBreaker
+  @SpringBootApplication
+  public class Application {
+      public static void main(String[] args) {
+          SpringApplication.run(Application.class, args);
+      }
   }
 ```
-- Habilite também um nível de log específico somente para o client Feign `DisciplinaClient`
-```
-logging:
-  level:
-    cloud.aluno.DisciplinaClient: DEBUG
-```
-- Configure um novo comportamento para timeout de conexões das requisições
+- Implemente uma classe `AlunoClientFallback` fornecendo uma implementação de fallback para cada método definido na interface Feign `AlunoClient`
 ```java
-  int FIVE_SECONDS = 5000; // milliseconds
-  @Bean
-  public Request.Options options() {
-      return new Request.Options(FIVE_SECONDS, FIVE_SECONDS);
+  @Component
+  public class AlunoClientFallback implements AlunoClient {
+      // TODO
   }
 ```
-- Habilite também a compressão da requisição e resposta à ser realizada
+- Configure a implementação deste fallback na interface Feign do `AlunoClient`
+```java
+  @FeignClient(name = "aluno-service", fallback = AlunoClientFallback.class)
+  public interface AlunoClient {
+      // ...
+  }
+```
+- Configure a propriedade `feign.hystrix.enabled` nas configurações da `disciplina-service`
 ```
 feign:
-  compression:
-    request:
-      enabled: true
-    response:
-      enabled: true  
+  hystrix:
+    enabled: true
+```
+- Configure as seguintes propriedades para o Hystrix Command nas propriedades do Config Server
+  - `execution.isolation.strategy` = SEMAPHORE
+  - `execution.isolation.semaphore.maxConcurrentRequests` = 5
+  - `fallback.isolation.semaphore.maxConcurrentRequests` = 5
+  - `circuitBreaker.requestVolumeThreshold` = 5
+```
+hystrix:
+  command:
+    AlunoClient#getAllAlunos():
+      execution:
+        isolation:
+          strategy: SEMAPHORE
+          semaphore:
+            maxConcurrentRequests: 5
+      fallback:
+        isolation:
+          semaphore:
+            maxConcurrentRequests: 5
+      circuitBreaker:
+        requestVolumeThreshold: 5
 ```
 - Execute e teste a aplicação

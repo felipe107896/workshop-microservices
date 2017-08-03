@@ -1,207 +1,108 @@
 # Laboratório 11
 
 ## Objetivos
-- Protegendo os microservices com Spring Cloud Security
+- Aplicando segurança nos serviços da plataforma Spring Cloud
 
 ## Tarefas
 
-### Protega o microservice de Aluno
+### Protega o Config Server
 - Utilize os projetos definidos no exercício anterior
-- Adicione as dependência do `spring-cloud-starter-security`, `spring-security-oauth2`, `spring-security-jwt` no projeto `aluno-service`
+- Adicione a dependência do `spring-boot-starter-security` no projeto do `config-server`
 ```xml
   <dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-security</artifactId>
-  </dependency>
-  <dependency>
-    <groupId>org.springframework.security.oauth</groupId>
-    <artifactId>spring-security-oauth2</artifactId>
-  </dependency>
-  <dependency>
-    <groupId>org.springframework.security</groupId>
-    <artifactId>spring-security-jwt</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
   </dependency>
 ```
-- Configure o serviço de recursos OAuth2 utilizando a anotação `@EnableResourceServer` no projeto `aluno-service`
-```java
-  @Configuration
-  @EnableResourceServer
-  public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-
-    @Override
-  	public void configure(HttpSecurity http) throws Exception {
-  		  http.csrf().disable().authorizeRequests()
-  			   .anyRequest().authenticated();
-  	}
-  }
-```
-- Configure as seguintes propriedades do `aluno-service` gerenciadas pelo Config Server
+- Configure as credentials para acesso ao Config Server no arquivo `application.yml` do projeto `config-server`
 ```
 security:
-  sessions: stateless
-  basic:
-    enabled: false
   user:
-    password: none    
-  oauth2:
-    resource:
-      jwt:
-        keyValue: |
-            -----BEGIN PUBLIC KEY-----
-            MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAo1jWPfjvJxaXCHzvClU7
-            uJg+6AlZ8ht1Rbr+7Wo5o+YBWgCc6lZmSv/mwxvfL/wqagQ/W756a8vUJ7qFz/k9
-            eBSJQSRuzJ6pT4OMMR9gbmYroh3RM/Xd5RelJgT3+OrvjAZr1pFYdAwp0q1T9XPa
-            6PnCXq8KhIqNPxMjcaBrOycWEgWE4g4VnnrKDLtMmEZZIc0EMv8j7womsyNkbTyl
-            nPsbFttNwtFoTVJeqvD01Fd6ISaoOVQAUfAcxvp77B/A1g0No3GHBupEtW3Hgp2/
-            80Zl0+Gwjl6Wag5Mu9H7MIUPo+4xFGAJ0uwseHiErZqdWlHIo179IacB87+9Vt0g
-            pwIDAQAB
-            -----END PUBLIC KEY-----
+    name: configUser
+    password: configPassword
+    role: SYSTEM
 ```
-- Observe na configuração dos recursos OAuth2 esta configurada para modo `Stateless` e utilizando a validação JWT no cliente
 - Execute e teste a aplicação
-  - Tente acessar os REST endpoints do `aluno-service` sem informar nenhum token na requisição
-  - Recupere um OAuth2 token via `security-server` e tente acessar os REST endpoints com esse token adicionado no header da requisição
-    - `Authorization: Bearer [token]`
-  - Identifique também que a validação deste token acontece de maneira `Stateless` sem precisar acessar o `security-server`
-
-### Protega o microservice de Disciplina
-- Utilize os projetos definidos no exercício anterior
-- Adicione as dependência do `spring-cloud-starter-security`, `spring-security-oauth2`, `spring-security-jwt` no projeto `disciplina-service`
-```xml
-  <dependency>
-    <groupId>org.springframework.cloud</groupId>
-    <artifactId>spring-cloud-starter-security</artifactId>
-  </dependency>
-  <dependency>
-    <groupId>org.springframework.security.oauth</groupId>
-    <artifactId>spring-security-oauth2</artifactId>
-  </dependency>
-  <dependency>
-    <groupId>org.springframework.security</groupId>
-    <artifactId>spring-security-jwt</artifactId>
-  </dependency>
+  - Foi possível recuperar as configurações via Config Server pelos demais serviços durante o startup?
+- Modifique a configuração para acesso ao Config Server no arquivo `bootstrap.yml` dos demais projetos existentes
 ```
-- Configure o serviço de recursos OAuth2 utilizando a anotação `@EnableResourceServer` no projeto `disciplina-service`
-```java
-  @Configuration
-  @EnableResourceServer
-  public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-
-    @Override
-  	public void configure(HttpSecurity http) throws Exception {
-  		  http.csrf().disable().authorizeRequests()
-  			   .anyRequest().authenticated();
-  	}
-  }
+spring:
+  cloud:
+    config:
+      uri: http://localhost:8888
+      username: configUser
+      password: configPassword      
 ```
-- Configure as seguintes propriedades do `disciplina-service` gerenciadas pelo Config Server
-```
-security:
-  basic:
-    enabled: false
-  user:
-    password: none    
-  oauth2:
-    resource:
-      preferTokenInfo: false
-      userInfoUri: http://localhost:9999/users/current
-```
-- Observe na configuração dos recursos OAuth2 esta configurada para validação do JWT via `security-server`
-- Execute e teste a aplicação
-  - Tente acessar os REST endpoints do `disciplina-service` sem informar nenhum token na requisição
-  - Recupere um OAuth2 token via `disciplina-service` e tente acessar os REST endpoints com esse token adicionado no header da requisição
-    - `Authorization: Bearer [token]`
-  - Identifique também que durante a validação do token é realizado uma chamada ao `security-server`
+- Execute e teste novamente a aplicação
+  - Deverá ser possível acessar corretamente as configurações via Config Server
 
-
-### Configure o suporte a utilização de restrições de segurança OAuth2 via anotações
+### Protega o Eureka Server
 - Utilize os projetos definidos anteriormente
-- Defina uma classe `SecurityMethodConfig` para adicionar o suporte a restrições de segurança via anotações nos projetos `aluno-service` e `disciplina-service`
+- Adicione a dependência do `spring-boot-starter-security` no projeto do `eureka-server`
+```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+  </dependency>
+```
+- Defina uma classe `SecurityConfig` no projeto do `eureka-server`
 ```java
   @Configuration
-  @EnableGlobalMethodSecurity(prePostEnabled = true)
-  public class SecurityMethodConfig extends GlobalMethodSecurityConfiguration {
+  @EnableWebSecurity
+  @Order(1)
+  public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+	  @Autowired
+	  public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
+		  auth.inMemoryAuthentication()
+			  .withUser("eurekaUser").password("eurekaPassword").roles("SYSTEM");
+	  }
 
 	  @Override
-	  protected MethodSecurityExpressionHandler createExpressionHandler() {
-		  return new OAuth2MethodSecurityExpressionHandler();
-	  }
-
-  }
-```
-- Adicione a seguinte restrição de segurança para acessar o REST endpoint `/disciplinas/nomes` no `DisciplinaRestController`
-```java
-  @RestController
-  @RequestMapping("/disciplinas")
-  public class DisciplinaRestController {
-    //...
-
-	  @PreAuthorize("hasRole('MANAGER')")
-	  @GetMapping("/nomes")
-	  public List<String> getDisciplinas() {
-		  return repository.findAll()
-				  .stream().map(d -> d.getNome()).collect(Collectors.toList());
-	  }
-  }
-```
-- Adicione a seguinte restrição de segurança para acessar o REST endpoint `/alunos/nomes` no `AlunoRestController`
-```java
-  @RestController
-  @RequestMapping("/alunos")
-  public class AlunoRestController {
-    //...
-
-	  @PreAuthorize("#oauth2.isUser()")
-	  @GetMapping("/nomes")
-	  public List<String> getAlunos() {
-		  return repository.findAll()
-				  .stream().map(a -> a.getNome()).collect(Collectors.toList());
+	  public void configure(HttpSecurity http) throws Exception {
+		  http.httpBasic().and().csrf().disable()
+			  .authorizeRequests().anyRequest().authenticated().and()
+			  .authorizeRequests().anyRequest().hasRole("SYSTEM");
 	  }
   }
 ```
 - Execute e teste a aplicação
-  - Tente acessar o REST endpoint `/disciplinas/nomes` com um token para um usuário sem o perfil `MANAGER`
-  - Tente acessar o REST endpoint `/alunos/nomes` com um token gerado via fluxo OAuth2 `client_credentials`
+  - Foi possível registrar os demais serviços da aplicação no Eureka Server?
+  - Tente acessar o Eureka Dashboard. Será necessário realizar um login para acesso (eurekaUser/eurekaPassword)
+    - http://localhost:8761/
+- Modifique a configuração de conexão ao Eureka Server nas propriedades dos demais serviços da aplicação
+```
+eureka:
+ client:
+   serviceUrl:
+     defaultZone: ${EUREKA_URI:http://eurekaUser:eurekaPassword@localhost:8761/eureka}
+ instance:
+   preferIpAddress: true
+```
+- Execute e teste novamente a aplicação
+  - Deverá ser possível registrar todos os serviços no Eureka Server
 
-### Configure o repasse do contexto de segurança OAuth2 nas requisições via Feign
+### Protega o Hystrix Dashboard
 - Utilize os projetos definidos anteriormente
-- Execute e teste a aplicação tentando acessar os REST endpoints que realizam chamadas via Feign para outros serviços. Verifique se os dados solicitados foram todos retornados.
-  - REST `/disciplinas/{id}/dto`
-  - REST `/alunos/{id}/dto`
-- Adicione a seguinte configuração do `ResourceServerConfig` nos projetos do `aluno-service` e `disciplina-service`
-```java
-  @Configuration
-  @EnableResourceServer
-  public class ResourceServerConfig extends ResourceServerConfigurerAdapter {
-	  //...
-
-    @Bean
-    public OAuth2FeignRequestInterceptor feignRequestInterceptor(
-            OAuth2ClientContext oAuth2ClientContext, OAuth2ProtectedResourceDetails resource) {
-        return new OAuth2FeignRequestInterceptor(oAuth2ClientContext, resource);
-    }
-  }
+- Adicione a dependência do `spring-boot-starter-security` no projeto do `hystrix-dashboard`
+```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+  </dependency>
 ```
-- Execute e teste a aplicação novamente
-  - Foi possível acessar os dados dos alunos via REST endpoint `/disciplinas/{id}/dto`?
-  - Foi possível acessar os dados das disciplinas via REST endpoint `/alunos/{id}/dto`?
-- Modifique a configuração do circuit breaker Hystrix na classe `DisciplinaServiceProxy` para utilizar a estratégia `SEMAPHORE`
-```java
-  @Service
-  public class DisciplinaServiceProxy {
-    //...
-
-	  @HystrixCommand(fallbackMethod = "getNomesDisciplinasFallback",
-			commandProperties = {
-					@HystrixProperty(name="execution.isolation.strategy", value="SEMAPHORE"),
-					@HystrixProperty(name="circuitBreaker.requestVolumeThreshold", value="5"),
-					@HystrixProperty(name="requestCache.enabled", value="false")
-			})
-	  List<String> getNomesDisciplinas() {
-		  Resources<DisciplinaDTO> disciplinas = disciplinaClient.getAllDisciplinas();
-		  return disciplinas.getContent().stream()
-				.map(d -> d.getNome()).collect(Collectors.toList());
-	  }
-  }
+- Configure a restrição para acesso nas propriedades do projeto `hystrix-dashboard`
 ```
-- Execute e teste novamente o acesso ao REST endpoint `/alunos/{id}/dto`. Foi possível acessar os dados de disciplina agora?
+security:
+  basic:
+    enabled: true
+  user:
+    name: hystrixUser
+    password: hystrixPassword
+    role: SYSTEM
+```
+- Execute e teste a aplicação
+  - Será necessário realizar um login de acesso para o Hystrix Dashboard (hystrixUser / hystrixPassword)
+    - http://localhost:7979/hystrix
+  - Para acessar o stream dos circuitos monitorados será necessário também informar o usuário e password na URL
+    - http://hystrixUser:hystrixPassword@localhost:7979/turbine.stream
