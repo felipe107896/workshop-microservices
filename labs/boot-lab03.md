@@ -1,28 +1,12 @@
 # Laboratório 3
 
 ## Objetivos
-- Testando uma aplicação com Spring Boot
+- Implementando RESTful com Spring Boot
 
 ## Tarefas
-### Implemente um Spring Boot test
+### Implemente uma API RESTful API para controlar alunos
 - Crie um novo projeto Spring Boot
-- Define um novo `@Component` na aplicação Spring Bean para representar uma calculadora
-- Implemente métodos para as operações `soma`, `subtração`, `multiplicação`, `divisão`
-- Define uma classe de teste utilizando a anotação `@SpringBootTest`
-- Realize a injeção do objeto calculadora
-- Implemente os métodos de teste unitário para as funções da calculadora
-- Execute a classe de teste com sucesso
-
-### Implemente um Spring Boot test utilizando Mockito
-- Utilize o projeto anteriormente criado
-- Defina uma nova classe de teste utilizando a anotação `@SpringBootTest`
-- Realize a injeção do objeto mock da calculadora utilizando `@MockBean`
-- Implemente os métodos de teste unitário "mockando" as funções da calculadora
-- Execute a classe de teste com sucesso
-
-### Implemente um Spring Boot test para JSON
-- Utilize o projeto anteriormente criado
-- Implemente uma nova classe para representar um objeto `Aluno`
+- Implemente um classe para representar o objeto `Aluno`
 ```java
 class Aluno {
   Long id;
@@ -32,10 +16,79 @@ class Aluno {
   // getters/setters
 }
 ```
-- Defina uma nova classe de teste utilizando a anotação `@SpringBootTest`
-- Realize a injeção do `JacksonTester` para o objeto `Aluno`
+- Implemente um `@RestController` com os endpoints RESTful para gerenciar as ações de `listar`, `criar`, `atualizar` e `excluir`
+- Execute e teste a aplicação
+  - DICA: Utilize um cliente REST para poder simular as chamadas aos endpoints RESTful (Postman: https://www.getpostman.com)
+
+### Manipule a negociação de conteúdo com REST
+- Utilize o projeto definido anteriormente
+- Realize a configuração para negociação de conteúdo JSON e/ou XML (conforme slide)
+- Revise a implementação dos endpoints RESTful para configurar o suporte à serialização de retorno JSON e XML
 ```java
-JacksonTester<Aluno> json;
+@RequestMapping(path = "/service",
+                method = RequestMethod.GET,
+                produces = {MediaType.APPLICATION_JSON_VALUE, MediaType.APPLICATION_XML_VALUE})
 ```
-- Implemente o teste de serialização JSON para o objeto `Aluno`, conforme exemplo demonstrado (slides)
+- Adicione o suporte a renderização (parser) XML no bean de `Aluno`
+```java
+@XmlRootElement
+public class Aluno {
+  ...
+}
+```
+- Execute e teste a aplicação negociando o conteúdo desejado
+
+### Configure o comportamento HATEOAS na API REST
+- Utilize o projeto definido anteriormente
+- Configure as dependências do Spring HATEOAS
+```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-hateoas</artifactId>
+  </dependency>
+```
+- Modifique a implementação do objeto `Aluno` para tornar-se um `ResourceSupport`
+- Modifique a implementação dos endpoints RESTful para adicionar os hyperlinks HATEOAS
+- Execute e teste a aplicação
+
+### Implemente uma classe de teste para @RestController
+- Utilize o projeto defindo anteriormente
+- Implemente uma classe de teste para a API RESTful de alunos
+- Utilize a configuração `@WebMvcTest` para facilitar a implementação do unit test
+- Injete o objeto MockMvc para simular as requisições HTTP send realizadas no controller
 - Execute a classe de teste com sucesso
+
+### Documente API com Swagger
+- Utilize o projeto definido anteriormente
+- Configure as dependências do Swagger Code e UI
+```xml
+  <dependency>
+      <groupId>io.springfox</groupId>
+      <artifactId>springfox-swagger2</artifactId>
+      <version>2.6.1</version>
+  </dependency>
+
+  <dependency>
+      <groupId>io.springfox</groupId>
+      <artifactId>springfox-swagger-ui</artifactId>
+      <version>2.6.1</version>
+  </dependency>
+```
+- Habilite a configuração do Swagger na aplicação Spring Boot
+```java
+@Configuration
+@EnableSwagger2
+public class SwaggerConfig {                                    
+    @Bean
+    public Docket api() {
+        return new Docket(DocumentationType.SWAGGER_2)  
+          .select()                                  
+          .apis(RequestHandlerSelectors.any())              
+          .paths(PathSelectors.any())                          
+          .build();                                           
+    }
+}
+```
+- Documente algums endpoints RESTful que foram implementados utilizando as Swagger annotations
+  - `@ApiOperation`, `@ApiResponse`, `@ApiParam`, etc
+- Execute a aplicação e verifique a documentação publicada

@@ -1,45 +1,78 @@
 # Laboratório 4
 
 ## Objetivos
-- Desenvolvendo Web com Spring MVC
+- Persistindo dados com Spring Data JPA
 
 ## Tarefas
-### Implemente um CRUD Web de Alunos
-- Crie um novo projeto Spring Boot
-- Implemente um classe para representar o objeto `Aluno`
+### Persista dados em um RDBMS com Spring Data JPA
+- Utilize o projeto criado no exercício anterior, ou crie um novo projeto Spring Boot
+- Configure a dependência do Spring Data JPA
+```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+  </dependency>
+```
+- Implemente os mapeamentos JPA na classe `Aluno`
 ```java
+@Entity
 class Aluno {
+  @Id @GeneratedValue(strategy = GenerationType.AUTO)
   Long id;
   String nome;
   Integer matricula;
   String email;
+  Date dataNascimento;
   // getters/setters
 }
 ```
-- Implemente um `@Controller` para controlar as telas do CRUD de Alunos com as ações de `listar`, `criar`, `atualizar` e `excluir`
-- Implemente um `index.html` com a lista de alunos e adicione no diretório `/templates`
-- Inicialize uma lista no controller e compartilhe com a tela de listagem
-- Implemente um `aluno.html` com o formulário de cadastro do aluno e adicione no diretório `/templates`
-- Implemente as ações de `salvar` e `cancelar` para criação e/ou edição do aluno, vinculado-as com as ações no controller respectivo
-- Implemente a ação de `excluir` um aluno e recarrege a tela de listagem
+- Defina o repositório `AlunoRepository` extendendo do `JpaRepository`
+- Injete o `AlunoRepository` no REST controller do aluno
+- Modifique os métodos do REST controller para persistir e/ou recuperar os dados do aluno
+- Adicione a dependência do banco de dados H2
+```xml
+  <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <scope>runtime</scope>
+  </dependency>
+```
+- Ative o Web console de administração do H2, e a URL para conexão adicionando as seguintes propriedades no `application.properties`
+```
+spring.h2.console.enabled=true
+spring.datasource.url=jdbc:h2:mem:alunodb
+```
 - Execute e teste a aplicação
 
-### Defina telas customizadas para HTTP errors
+### Implemente consultas customizadas no repositório JPA
 - Utilize o projeto definido anteriormente
-- Defina uma tela customizada para o erro HTTP 404
-- Defina uma tela customizada para o erro HTTP 401
-- Defina uma tela customizada para o erro HTTP 500
-- Execute e teste a aplicação, simulando os erros customizados
+- Defina uma consulta utilizando o mecanismo de consultas dinâmicas (definidas pelo nome do método) para retornar os alunos que contém um determinado nome
+- Implemente um novo endpoint REST para executar a nova consulta por nome definida
+- Defina uma nova consulta utilizando `@Query` para retornar os alunos cujo mês de nascimento é igual ao mês corrente
+- Implemente um novo endpoint REST para executar a nova consulta por mês de nascimento definida
+- Execute e teste a aplicação
 
-### Defina um tratamento de exceções via @ExceptionHandler
-- Utilize o projeto defindo anteriormente
-- Implemente um método para tratamento de exceção no controller utilizando a configuração `@ExceptionHandler`
-- Simule a exceção sendo disparada por meio de alguma ação dentro do controller
-- Execute a aplicação, e verifique o tratamento sendo executado
+### Configure e utilize o ProjectLombok
+- Utilize o projeto definido anteriormente
+- Instale o plug-in do ProjectLombok na IDE
+  - https://projectlombok.org/setup/eclipse
+- Configure a dependência do ProjectLombok
 
-### Implemente uma classe de teste para @Controller
+```xml
+  <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>1.16.16</version>
+  </dependency>  
+```
+- Modifique a implementação da entidade `Aluno` para utilizar ProjectLombok
+  - DICA: Utilize as anotações `@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@Builder`, `@EqualsAndHashcode`, `@ToString`
+- Execute e teste a aplicação
+
+### Implemente uma classe de teste para o repositório JPA
 - Utilize o projeto defindo anteriormente
-- Implemente uma classe de teste para o controller de alunos
-  - Utilize a configuração `@WebMvcTest` para facilitar a implementação do unit test
-- Injete o objeto `MockMvc` para simular as requisições HTTP send realizadas no controller
+- Implemente uma classe de teste para o `AlunoRepository`
+- Utilize a configuração `@DataJpaTest` para facilitar a implementação do unit test
+- Injete o repositório e o `TestEntityManager` para poder realizar as chamadas e as asserções do teste
+- Implemente um teste unitário para cada método utilizado pelo repositório na aplicação
 - Execute a classe de teste com sucesso
