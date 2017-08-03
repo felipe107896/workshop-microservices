@@ -4,24 +4,21 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.netflix.ribbon.RibbonClient;
-import org.springframework.http.ResponseEntity;
+import org.springframework.hateoas.Resources;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
 
 @RestController
 @RequestMapping("/alunos")
-@RibbonClient(name = "disciplina-service", configuration = RibbonConfiguration.class)
 public class AlunoRestController {
 
 	@Autowired
 	AlunoRepository repository;
 	
 	@Autowired
-	RestTemplate restTemplate;
+	DisciplinaClient disciplinaClient;
 	
 	@GetMapping("/nomes")
 	public List<String> getAlunos() {
@@ -33,17 +30,17 @@ public class AlunoRestController {
 	@SuppressWarnings("all")
 	public AlunoDTO getAluno(@PathVariable Long id) throws Exception {
 
-		ResponseEntity<List> disciplinas = restTemplate.getForEntity(
-				"http://disciplina-service/disciplinas/nomes",
-				List.class);
-		
+		Resources<DisciplinaDTO> disciplinas = disciplinaClient.getAllDisciplinas();
+		List<String> nomesDisciplinas = disciplinas.getContent().stream()
+				.map(d -> d.getNome()).collect(Collectors.toList());
+				
 		Aluno aluno = repository.findOne(id);
 
 		return AlunoDTO.builder().id(aluno.getId())
 				.nome(aluno.getNome())
 				.matricula(aluno.getMatricula())
 				.email(aluno.getEmail())
-				.disciplinas((List<String>) disciplinas.getBody())
+				.disciplinas(nomesDisciplinas)
 				.build();
 	}
 
