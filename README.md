@@ -42,4 +42,3 @@ Implemente micro-serviços com Spring Cloud e com o suporte dos projetos Netflix
 - https://goo.gl/ho4BcU
 - https://goo.gl/edjNLX
 - https://goo.gl/nvY58X
-- https://goo.gl/y6Abmj
