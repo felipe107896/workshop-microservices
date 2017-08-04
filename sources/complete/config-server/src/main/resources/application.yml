@@ -15,7 +15,7 @@ spring:
       server:
         git:
           uri: https://github.com/rcandidosilva/workshop-microservices.git
-          search-paths: sources/extras/config-repo        
+          search-paths: sources/complete/config-repo        
   rabbitmq:
     host: localhost
     port: 5672    
